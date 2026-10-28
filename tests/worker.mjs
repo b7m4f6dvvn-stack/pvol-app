@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import worker from '../worker/index.js';
+const origin='https://pvol.example';
+const request=(action,headers={})=>new Request(origin+'/api',{method:'POST',headers:{origin,...headers},body:JSON.stringify({action})});
+let r=await worker.fetch(new Request(origin));assert.equal(r.status,200);assert((await r.text()).includes('PVÖL'));assert(r.headers.get('Content-Security-Policy'));
+r=await worker.fetch(new Request(origin+'/app.js'));assert((await r.text()).includes('function job()'));
+assert.equal((await worker.fetch(new Request(origin+'/api'))).status,405);
+assert.equal((await worker.fetch(request('state',{origin:'https://evil.example'}))).status,403);
+const original=globalThis.fetch;globalThis.fetch=async()=>Response.json({session:{access_token:'test-access',refresh_token:'test-refresh'}});
+r=await worker.fetch(request('login'));const data=await r.json();assert.equal(data.session,undefined);assert(data.ok);assert(r.headers.get('Set-Cookie').includes('HttpOnly'));assert(r.headers.get('Set-Cookie').includes('Secure'));
+r=await worker.fetch(request('logout'));assert(r.headers.get('Set-Cookie').includes('Max-Age=0'));globalThis.fetch=original;
+console.log('PASS Sites worker assets, security headers, CSRF checks, HttpOnly cookies, token redaction and logout');
