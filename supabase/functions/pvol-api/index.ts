@@ -7,7 +7,7 @@ function fail(message:string,status=400):never{throw {message,status}}
 function str(x:unknown,max:number,min=0){if(typeof x!=='string'||x.trim().length<min||x.length>max)fail('Kontrollera text och obligatoriska fält.');return x.trim()}
 async function result(q:any){const {data,error}=await q;if(error)throw Error('Database operation failed');return data}
 function pwd(x:unknown,min=1){if(typeof x!=='string'||x.length<min||x.length>256)fail('Kontrollera lösenordets längd.');return x}
-const cats=['Övrigt','Förslagslåda','Förbättringsförslag','Mötesfrågor','Luckans loggbok','Truckar','Plock','Inlägg','Moppe','Utkör','Avrop','Luckan','Brist','Däck'];
+const cats=['Övrigt','Förslagslåda','Förbättringsförslag','Mötesfrågor','Luckans loggbok','Luckans morgonbön','Truckar','Plock','Inlägg','Moppe','Utkör','Avrop','Luckan','Brist','Däck'];
 Deno.serve(async req=>{try{
  if(req.method!=='POST')return json({error:'Metoden stöds inte.'},405);
  if(Number(req.headers.get('content-length')||0)>7500000)fail('För stor förfrågan.',413);
