@@ -2,18 +2,25 @@
   "name": "PVÖL Förråd",
   "short_name": "PVÖL",
   "description": "Information, möten och närvaro för PVÖL Förråd",
-  "start_url": "./",
-  "scope": "./",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#f4f6f9",
   "theme_color": "#122B49",
   "lang": "sv",
   "icons": [
     {
-      "src": "./icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "src": "/pvol-truck-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pvol-truck-512.webp",
+      "sizes": "512x512",
+      "type": "image/webp",
+      "purpose": "any"
     }
-  ]
+  ],
+  "id": "/"
 }
