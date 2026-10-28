@@ -27,7 +27,7 @@ Deno.serve(async req=>{try{
  const invite=await result(db.from('pvol_invites').select('*').eq('token_hash',h).is('used_at',null).is('revoked_at',null).gt('expires_at',new Date().toISOString()).maybeSingle());if(!invite)fail('Länken är använd, återkallad eller har gått ut.',410);
  if(action==='inviteInfo')return json({name:invite.display_name,recovery:!!invite.target_user});
  const password=pwd(b.password,12);if(!/[a-zA-ZåäöÅÄÖ]/.test(password)||!/[0-9]/.test(password))fail('Använd minst 12 tecken, bokstäver och siffror.');
- let uid=invite.target_user,email='';
+ let uid=invite.target_user,email='';const displayName=uid?null:str(b.name??invite.display_name,80,1);
  if(uid){const m=await result(db.from('pvol_members').select('active').eq('user_id',uid).single());if(!m.active)fail('Kontot är avstängt.',403);const u=await db.auth.admin.getUserById(uid);email=u.data.user?.email||'';
  await result(db.rpc('pvol_accept',{h,u:uid}));
  const {error}=await db.auth.admin.updateUserById(uid,{password,email_confirm:true});if(error)fail('Lösenordet kunde inte ändras. Be huvudadmin skapa en ny länk.',500);
@@ -39,6 +39,7 @@ Deno.serve(async req=>{try{
  const {data,error}=await db.auth.admin.createUser({email,password,email_confirm:true});if(error||!data.user)fail('Kontot kunde inte skapas. Adressen kan redan vara registrerad.');uid=data.user.id;
  try{await result(db.rpc('pvol_accept',{h,u:uid}));}catch{await db.auth.admin.deleteUser(uid);fail('Länken kunde inte användas. Den kan redan vara använd.',409)}
  }
+ if(displayName)await result(db.from('pvol_members').update({display_name:displayName}).eq('user_id',uid));
  const {data,error}=await createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}}).auth.signInWithPassword({email,password});if(error||!data.session)fail('Lösenordet sparades. Logga in med din e-postadress och lösenord.',400);return json({session:data.session});
  }
  const jwt=req.headers.get('authorization')?.replace(/^Bearer /i,'')||'';
@@ -51,6 +52,7 @@ Deno.serve(async req=>{try{
  const admin=['admin','owner'].includes(me.role),owner=me.role==='owner';
  const requireAdmin=()=>{if(!admin)fail('Endast administratörer kan göra detta.',403)};
  const requireOwner=()=>{if(!owner)fail('Endast huvudadmin kan göra detta.',403)};
+ if(action==='profile'){await result(db.from('pvol_members').update({display_name:str(b.name,80,1)}).eq('user_id',uid));return json({ok:true})}
  if(action==='logout'){await db.auth.admin.signOut(jwt,'local');return json({ok:true})}
  if(action==='state'){
  const [posts,comments,events,instructions,members,attendance,meetings,chat,phones]=await Promise.all([
@@ -58,7 +60,7 @@ Deno.serve(async req=>{try{
  const invites=admin?await result(db.from('pvol_invites').select('id,display_name,expires_at,used_at,revoked_at,target_user').order('created_at',{ascending:false}).limit(100)):[];
  const signed=posts.filter((p:any)=>p.image).map((p:any)=>p.image);
  const images=signed.length?await db.storage.from('pvol-images').createSignedUrls(signed,300):{data:[]};
- return json({me,posts:posts.map((p:any)=>({...p,imageURL:images.data?.find((i:any)=>i.path===p.image)?.signedUrl||null})),comments,events,instructions,members,attendance:attendance.map((a:any)=>({...a,note:a.user_id===uid?a.note:''})),meetings,invites,chat,phones});
+ return json({me:{...me,email:auth.user.email},posts:posts.map((p:any)=>({...p,imageURL:images.data?.find((i:any)=>i.path===p.image)?.signedUrl||null})),comments,events,instructions,members,attendance:attendance.map((a:any)=>({...a,note:a.user_id===uid?a.note:''})),meetings,invites,chat,phones});
  }
  if(action==='invite'){
  requireAdmin();const name=str(b.name,80,1);let target=null;

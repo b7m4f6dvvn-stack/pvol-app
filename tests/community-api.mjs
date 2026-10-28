@@ -17,5 +17,6 @@ assert.equal((await call('deletePhone',{id:'other'})).status,403);
 assert.equal((await call('instruction',{title:'Blocked'})).status,403);
 assert.equal((await call('attendance',{start:'2026-10-28',end:'2026-10-28',status:'Semester',note:''})).status,200);
 assert.equal((await call('attendance',{start:'2026-10-28',end:'2026-10-28',status:'Invalid',note:''})).status,400);
+assert.equal((await call('profile',{name:'My name'})).status,200);assert.equal((await call('profile',{name:''})).status,400);
 active=false;assert.equal((await call('chat',{body:'Denied'})).status,403);
 console.log('PASS API status privacy, chat authorship, phone validation, deletion ownership, admin protection and inactive member access');
