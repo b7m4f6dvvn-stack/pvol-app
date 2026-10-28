@@ -15,7 +15,7 @@ assert.equal((await call('phone',{name:'Truck',category:'Truckar',phone:'javascr
 assert.equal((await call('deleteChat',{id:'other'})).status,403);
 assert.equal((await call('deletePhone',{id:'other'})).status,403);
 assert.equal((await call('instruction',{title:'Blocked'})).status,403);
-assert.equal((await call('attendance',{start:'2026-10-28',end:'2026-10-28',status:'Semester',note:''})).status,200);
+assert.equal((await call('attendance',{start:'2026-10-28',end:'2026-10-28',status:'Semester',start_time:'07:00',end_time:'16:00',note:''})).status,200);
 assert.equal((await call('attendance',{start:'2026-10-28',end:'2026-10-28',status:'Invalid',note:''})).status,400);
 assert.equal((await call('profile',{name:'My name'})).status,200);assert.equal((await call('profile',{name:''})).status,400);
 active=false;assert.equal((await call('chat',{body:'Denied'})).status,403);

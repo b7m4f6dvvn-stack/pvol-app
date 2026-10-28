@@ -93,7 +93,12 @@ Deno.serve(async req=>{try{
  if(action==='instruction'){requireAdmin();const row={title:str(b.title,150,1),category:str(b.category,40,1),body:str(b.body,10000,1),author:uid,updated_at:new Date().toISOString()};await result(b.id?db.from('pvol_instructions').update(row).eq('id',b.id):db.from('pvol_instructions').insert(row));return json({ok:true})}
  if(action==='deleteEvent'||action==='deleteInstruction'){requireAdmin();await result(db.from(action==='deleteEvent'?'pvol_events':'pvol_instructions').delete().eq('id',b.id));return json({ok:true})}
  if(action==='meeting'){requireAdmin();if(!/^\d{4}-\d{2}-\d{2}$/.test(b.date)||!['morgon','avdelning'].includes(b.type))fail('Ogiltigt möte.');await result(db.from('pvol_meeting_changes').upsert({meeting_date:b.date,meeting_type:b.type,location:str(b.location,200),cancelled:b.cancelled===true,cancellation_reason:str(b.reason,500),updated_by:uid}));return json({ok:true})}
- if(action==='attendance'){if(!['Jobbar','Sjuk','VAB','Ledig','Semester','Möte','Fackligt jobb','Annat'].includes(b.status))fail('Välj en giltig status.');if(!/^\d{4}-\d{2}-\d{2}$/.test(b.start)||!/^\d{4}-\d{2}-\d{2}$/.test(b.end)||b.start>b.end)fail('Kontrollera datumen.');await result(db.from('pvol_attendance').insert({user_id:uid,start_date:b.start,end_date:b.end,status:b.status,note:str(b.note,1000)}));return json({ok:true})}
+ if(action==='attendance'){
+ if(!['Jobbar','Sjuk','VAB','Ledig','Semester','Möte','Fackligt jobb','Annat'].includes(b.status))fail('Välj en giltig orsak.');
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(b.start)||!/^\d{4}-\d{2}-\d{2}$/.test(b.end)||!Number.isFinite(Date.parse(b.start))||!Number.isFinite(Date.parse(b.end))||b.start>b.end)fail('Kontrollera datumen.');
+ const startTime=b.start_time??(b.status==='Jobbar'?'00:00':null),endTime=b.end_time??(b.status==='Jobbar'?'23:59':null);
+ if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(startTime||'')||!/^([01]\d|2[0-3]):[0-5]\d$/.test(endTime||'')||b.start===b.end&&startTime>=endTime)fail('Ange giltiga klockslag och en sluttid efter starttiden.');
+ await result(db.from('pvol_attendance').insert({user_id:uid,start_date:b.start,end_date:b.end,start_time:startTime,end_time:endTime,status:b.status,note:str(b.note,1000)}));return json({ok:true})}
 
  if(action==='chat'){await result(db.from('pvol_chat').insert({author:uid,body:str(b.body,2000,1)}));return json({ok:true})}
  if(action==='phone'){
