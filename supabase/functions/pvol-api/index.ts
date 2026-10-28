@@ -97,7 +97,7 @@ Deno.serve(async req=>{try{
  if(action==='attendance'){
  if(!['Jobbar','Sjuk','VAB','Ledig','Semester','Möte','Fackligt jobb','Annat'].includes(b.status))fail('Välj en giltig orsak.');
  if(!/^\d{4}-\d{2}-\d{2}$/.test(b.start)||!/^\d{4}-\d{2}-\d{2}$/.test(b.end)||!Number.isFinite(Date.parse(b.start))||!Number.isFinite(Date.parse(b.end))||b.start>b.end)fail('Kontrollera datumen.');
- const startTime=b.start_time??(b.status==='Jobbar'?'00:00':null),endTime=b.end_time??(b.status==='Jobbar'?'23:59':null);
+ const startTime=b.full_day===true?'00:00':b.start_time??(b.status==='Jobbar'?'00:00':null),endTime=b.full_day===true?'23:59':b.end_time??(b.status==='Jobbar'?'23:59':null);
  if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(startTime||'')||!/^([01]\d|2[0-3]):[0-5]\d$/.test(endTime||'')||b.start===b.end&&startTime>=endTime)fail('Ange giltiga klockslag och en sluttid efter starttiden.');
  await result(db.from('pvol_attendance').insert({user_id:uid,start_date:b.start,end_date:b.end,start_time:startTime,end_time:endTime,status:b.status,note:str(b.note,1000)}));return json({ok:true})}
 
