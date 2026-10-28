@@ -7,7 +7,7 @@ function fail(message:string,status=400):never{throw {message,status}}
 function str(x:unknown,max:number,min=0){if(typeof x!=='string'||x.trim().length<min||x.length>max)fail('Kontrollera text och obligatoriska fält.');return x.trim()}
 async function result(q:any){const {data,error}=await q;if(error)throw Error('Database operation failed');return data}
 function pwd(x:unknown,min=1){if(typeof x!=='string'||x.length<min||x.length>256)fail('Kontrollera lösenordets längd.');return x}
-const cats=['AW','Truckar','Plock','Inlägg','Moppe','Utkör','Avrop','Luckan','Brist','Däck'];
+const cats=['Övrigt','Förslagslåda','Förbättringsförslag','Mötesfrågor','Luckans loggbok','Truckar','Plock','Inlägg','Moppe','Utkör','Avrop','Luckan','Brist','Däck'];
 Deno.serve(async req=>{try{
  if(req.method!=='POST')return json({error:'Metoden stöds inte.'},405);
  if(Number(req.headers.get('content-length')||0)>7500000)fail('För stor förfrågan.',413);
@@ -79,7 +79,7 @@ Deno.serve(async req=>{try{
  const probe=createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}});const check=await probe.auth.signInWithPassword({email:auth.user.email!,password:current});if(check.error)fail('Nuvarande lösenord stämmer inte.',403);await probe.auth.signOut();const changed=await db.auth.admin.updateUserById(uid,{password});if(changed.error)fail('Kunde inte ändra lösenordet.');await db.rpc('pvol_revoke_sessions',{u:uid});return json({ok:true,reauth:true});
  }
  if(action==='post'){
- const body=str(b.body,5000,1),category=cats.includes(b.category)?b.category:'Inlägg';
+ const body=str(b.body,5000,1),category=b.category==='AW'?'Övrigt':cats.includes(b.category)?b.category:'Inlägg';
  if(b.id){let q=db.from('pvol_posts').update({body,category}).eq('id',b.id);if(!admin)q=q.eq('author',uid);const rows=await result(q.select('id'));if(!rows.length)fail('Inlägget saknas eller tillhör någon annan.',403);return json({ok:true})}
  let image=null;if(b.image){if(typeof b.image!=='string'||b.image.length>7000000)fail('Bilden är för stor.');const bytes=Uint8Array.from(atob(b.image),x=>x.charCodeAt(0));let ext='';if(bytes[0]===255&&bytes[1]===216&&bytes[2]===255)ext='jpg';if(bytes[0]===137&&bytes[1]===80&&bytes[2]===78&&bytes[3]===71)ext='png';if(String.fromCharCode(...bytes.slice(0,4))==='RIFF'&&String.fromCharCode(...bytes.slice(8,12))==='WEBP')ext='webp';if(!ext||bytes.length>5000000)fail('Välj JPG, PNG eller WebP under 5 MB.');image=uid+'/'+crypto.randomUUID()+'.'+ext;const upload=await db.storage.from('pvol-images').upload(image,bytes,{contentType:ext==='jpg'?'image/jpeg':'image/'+ext});if(upload.error)fail('Bilden kunde inte laddas upp.',500)}
  try{await result(db.from('pvol_posts').insert({author:uid,body,category,image}));}catch(e){if(image)await db.storage.from('pvol-images').remove([image]);throw e}return json({ok:true});
