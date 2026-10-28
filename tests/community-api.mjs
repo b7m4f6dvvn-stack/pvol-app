@@ -24,5 +24,6 @@ assert.equal((await call('jobOrder',{order:[]})).status,403);role='owner';assert
 assert.equal((await call('post',{body:'Unauthorized news',category:'Inlägg'})).status,403);
 assert.equal((await call('post',{id:'news',body:'Reclassified news',category:'Övrigt'})).status,403);assert.equal((await call('deletePost',{id:'news'})).status,403);
 assert.equal((await call('attendance',{start:'2026-11-02',end:'2026-11-04',status:'Ledig',full_day:true,note:''})).status,200);assert.equal(lastInsert.v.start_time,'00:00');assert.equal(lastInsert.v.end_time,'23:59');
+assert.equal((await call('post',{body:'Unauthorized union info',category:'Facket informerar'})).status,403);assert.equal((await call('post',{body:'Unauthorized safety info',category:'Skyddsombudet informerar'})).status,403);
 active=false;assert.equal((await call('chat',{body:'Denied'})).status,403);
 console.log('PASS API status privacy, chat authorship, phone validation, deletion ownership, admin protection and inactive member access');
