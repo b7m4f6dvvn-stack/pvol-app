@@ -11,3 +11,5 @@
 .tag.fault{background:#fff1c5;color:#815a0b}
 
 .brand-icon{width:52px;height:52px;border-radius:12px;object-fit:cover;flex-shrink:0}
+
+.app-clock{text-align:center;padding:10px;background:#e7edf2;color:#183552;font-size:14px;font-weight:650}.presence-dot.inactive{background:#99a2ad}
