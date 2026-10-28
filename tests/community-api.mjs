@@ -23,5 +23,6 @@ assert.equal((await call('truck',{truck_number:'123'})).status,403);assert.equal
 assert.equal((await call('jobOrder',{order:[]})).status,403);role='owner';assert.equal((await call('jobOrder',{order:[]})).status,400);const order=['Däck','Truckar','Övrigt','Plock','Inlägg','Moppe','Utkör','Avrop','Luckan','Brist'];assert.equal((await call('jobOrder',{order})).status,200);assert.equal((await call('jobOrder',{order:order.map(()=> 'Däck')})).status,400);role='member';
 assert.equal((await call('post',{body:'Unauthorized news',category:'Inlägg'})).status,403);
 assert.equal((await call('post',{id:'news',body:'Reclassified news',category:'Övrigt'})).status,403);assert.equal((await call('deletePost',{id:'news'})).status,403);
+assert.equal((await call('attendance',{start:'2026-11-02',end:'2026-11-04',status:'Ledig',full_day:true,note:''})).status,200);assert.equal(lastInsert.v.start_time,'00:00');assert.equal(lastInsert.v.end_time,'23:59');
 active=false;assert.equal((await call('chat',{body:'Denied'})).status,403);
 console.log('PASS API status privacy, chat authorship, phone validation, deletion ownership, admin protection and inactive member access');
