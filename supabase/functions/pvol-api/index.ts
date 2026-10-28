@@ -53,12 +53,12 @@ Deno.serve(async req=>{try{
  const requireOwner=()=>{if(!owner)fail('Endast huvudadmin kan göra detta.',403)};
  if(action==='logout'){await db.auth.admin.signOut(jwt,'local');return json({ok:true})}
  if(action==='state'){
- const [posts,comments,events,instructions,members,attendance,meetings]=await Promise.all([
- result(db.from('pvol_posts').select('*').order('created_at',{ascending:false}).limit(200)),result(db.from('pvol_comments').select('*').order('created_at').limit(2000)),result(db.from('pvol_events').select('*').order('starts_at').limit(500)),result(db.from('pvol_instructions').select('*').order('title')),result(db.from('pvol_members').select('user_id,display_name,role,active').order('display_name')),result(db.from('pvol_attendance').select('*').eq('user_id',uid).order('start_date',{ascending:false})),result(db.from('pvol_meeting_changes').select('*'))]);
+ const [posts,comments,events,instructions,members,attendance,meetings,chat,phones]=await Promise.all([
+ result(db.from('pvol_posts').select('*').order('created_at',{ascending:false}).limit(200)),result(db.from('pvol_comments').select('*').order('created_at').limit(2000)),result(db.from('pvol_events').select('*').order('starts_at').limit(500)),result(db.from('pvol_instructions').select('*').order('title')),result(db.from('pvol_members').select('user_id,display_name,role,active').order('display_name')),result(db.from('pvol_attendance').select('*').order('start_date',{ascending:false})),result(db.from('pvol_meeting_changes').select('*')),result(db.from('pvol_chat').select('*').order('created_at',{ascending:false}).limit(300)),result(db.from('pvol_phones').select('*').order('category').order('name'))]);
  const invites=admin?await result(db.from('pvol_invites').select('id,display_name,expires_at,used_at,revoked_at,target_user').order('created_at',{ascending:false}).limit(100)):[];
  const signed=posts.filter((p:any)=>p.image).map((p:any)=>p.image);
  const images=signed.length?await db.storage.from('pvol-images').createSignedUrls(signed,300):{data:[]};
- return json({me,posts:posts.map((p:any)=>({...p,imageURL:images.data?.find((i:any)=>i.path===p.image)?.signedUrl||null})),comments,events,instructions,members,attendance,meetings,invites});
+ return json({me,posts:posts.map((p:any)=>({...p,imageURL:images.data?.find((i:any)=>i.path===p.image)?.signedUrl||null})),comments,events,instructions,members,attendance:attendance.map((a:any)=>({...a,note:a.user_id===uid?a.note:''})),meetings,invites,chat,phones});
  }
  if(action==='invite'){
  requireAdmin();const name=str(b.name,80,1);let target=null;
@@ -91,7 +91,16 @@ Deno.serve(async req=>{try{
  if(action==='instruction'){requireAdmin();const row={title:str(b.title,150,1),category:str(b.category,40,1),body:str(b.body,10000,1),author:uid,updated_at:new Date().toISOString()};await result(b.id?db.from('pvol_instructions').update(row).eq('id',b.id):db.from('pvol_instructions').insert(row));return json({ok:true})}
  if(action==='deleteEvent'||action==='deleteInstruction'){requireAdmin();await result(db.from(action==='deleteEvent'?'pvol_events':'pvol_instructions').delete().eq('id',b.id));return json({ok:true})}
  if(action==='meeting'){requireAdmin();if(!/^\d{4}-\d{2}-\d{2}$/.test(b.date)||!['morgon','avdelning'].includes(b.type))fail('Ogiltigt möte.');await result(db.from('pvol_meeting_changes').upsert({meeting_date:b.date,meeting_type:b.type,location:str(b.location,200),cancelled:b.cancelled===true,cancellation_reason:str(b.reason,500),updated_by:uid}));return json({ok:true})}
- if(action==='attendance'){if(!/^\d{4}-\d{2}-\d{2}$/.test(b.start)||!/^\d{4}-\d{2}-\d{2}$/.test(b.end)||b.start>b.end)fail('Kontrollera datumen.');await result(db.from('pvol_attendance').insert({user_id:uid,start_date:b.start,end_date:b.end,status:b.status,note:str(b.note,1000)}));return json({ok:true})}
+ if(action==='attendance'){if(!['Jobbar','Sjuk','VAB','Ledig','Semester','Möte','Fackligt jobb','Annat'].includes(b.status))fail('Välj en giltig status.');if(!/^\d{4}-\d{2}-\d{2}$/.test(b.start)||!/^\d{4}-\d{2}-\d{2}$/.test(b.end)||b.start>b.end)fail('Kontrollera datumen.');await result(db.from('pvol_attendance').insert({user_id:uid,start_date:b.start,end_date:b.end,status:b.status,note:str(b.note,1000)}));return json({ok:true})}
+
+ if(action==='chat'){await result(db.from('pvol_chat').insert({author:uid,body:str(b.body,2000,1)}));return json({ok:true})}
+ if(action==='phone'){
+ const phone=str(b.phone,40,1);if(!/^\+?[0-9 ()-]+$/.test(phone)||!/[0-9]/.test(phone))fail('Ange ett giltigt telefonnummer.');
+ const row={name:str(b.name,120,1),category:str(b.category,80,1),phone,description:str(b.description,500)};
+ if(b.id){const rows=await result(db.from('pvol_phones').update(row).eq('id',b.id).select('id'));if(!rows.length)fail('Numret finns inte kvar.',404)}else await result(db.from('pvol_phones').insert({...row,author:uid}));return json({ok:true});
+ }
+ if(action==='deleteChat'||action==='deletePhone'){const table=action==='deleteChat'?'pvol_chat':'pvol_phones';let q=db.from(table).delete().eq('id',b.id);if(!admin)q=q.eq('author',uid);const rows=await result(q.select('id'));if(!rows.length)fail('Du kan bara ta bort ditt eget innehåll.',403);return json({ok:true})}
+
  if(action==='deleteAttendance'){await result(db.from('pvol_attendance').delete().eq('id',b.id).eq('user_id',uid));return json({ok:true})}
  fail('Okänd åtgärd.');
  }catch(e){return json({error:e?.status?e.message:'Kunde inte slutföra åtgärden. Försök igen.'},e?.status||500)}});

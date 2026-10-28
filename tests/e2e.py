@@ -36,7 +36,7 @@ ok('post',body='<script>alert(1)</script> QA post',category='Inlägg')
 s=ok('state');post=next(x for x in s['posts'] if x['author']==uid)
 ok('comment',post=post['id'],body='QA comment')
 ok('attendance',start='2026-10-28',end='2026-10-29',status='Jobbar',note='QA private')
-s=ok('state');assert any(c['post_id']==post['id'] for c in s['comments']);assert len(s['attendance'])==1
+s=ok('state');assert any(c['post_id']==post['id'] for c in s['comments']);assert len([a for a in s['attendance'] if a['user_id']==uid])==1
 print('PASS posts, comments, own attendance',flush=True)
 # Wait for operator to grant owner to this disposable test identity only.
 print(json.dumps({'qa_user_id':uid}),flush=True)
@@ -53,7 +53,7 @@ print('PASS calendar, instructions, meeting overrides, invite revocation',flush=
 d=ok('invite',name='QA second');token=d['token'];password2='Qa-'+secrets.token_hex(16)+'1';email2='pvol-qa-'+secrets.token_hex(6)+'@example.com'
 status,out=public('accept',token=token,email=email2,password=password2);assert status==200
 jwt2=out['session']['access_token'];uid2=out['session']['user']['id']
-status,s2=call('state',token=jwt2);assert status==200 and s2['attendance']==[]
+status,s2=call('state',token=jwt2);assert status==200 and all(a['note']=='' for a in s2['attendance'] if a['user_id']!=uid2)
 assert call('deletePost',token=jwt2,id=post['id'])[0]==403
 assert call('post',token=jwt2,id=post['id'],body='Hijack',category='AW')[0]==403
 assert call('instruction',token=jwt2,title='Nope')[0]==403
@@ -87,7 +87,8 @@ for e in s['events']:
     if e['author']==uid:ok('deleteEvent',id=e['id'])
 for i in s['instructions']:
     if i['author']==uid:ok('deleteInstruction',id=i['id'])
-for a in s['attendance']:ok('deleteAttendance',id=a['id'])
+for a in s['attendance']:
+ if a['user_id']==uid:ok('deleteAttendance',id=a['id'])
 ok('logout');assert call('state')[0]==401
 print('PASS delete flows and logout session revocation',flush=True)
 print(json.dumps({'cleanup_users':[uid,uid2]}),flush=True)

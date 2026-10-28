@@ -1,0 +1,21 @@
+import {stripTypeScriptTypes} from 'node:module';
+import fs from 'node:fs';
+import vm from 'node:vm';
+import assert from 'node:assert/strict';
+let handler,role='member',active=true,rows=[],lastInsert;
+const db={auth:{getUser:async()=>({data:{user:{id:'me'}}}),admin:{signOut:async()=>({})}},rpc:async()=>({data:true}),storage:{from:()=>({createSignedUrls:async()=>({data:[]})})},from(table){let filters={},operation='select',payload;const q={select(){return q},order(){return q},limit(){return q},eq(k,v){filters[k]=v;return q},maybeSingle(){return q},single(){return q},insert(v){operation='insert';payload=v;lastInsert={table,v};return q},update(v){operation='update';payload=v;return q},delete(){operation='delete';return q},then(resolve){let data=[];if(table==='pvol_members')data=filters.user_id?active?{user_id:'me',role,active:true}:null:[{user_id:'me',display_name:'Me',role,active:true}];if(table==='pvol_attendance')data=rows;if(operation==='delete')data=filters.author==='me'?[]:[{id:'x'}];return Promise.resolve({data,error:null}).then(resolve)}};return q}};
+const source=stripTypeScriptTypes(fs.readFileSync(new URL('../supabase/functions/pvol-api/index.ts',import.meta.url),'utf8').replace(/^import .*;\n/,''));
+vm.runInNewContext(source,{Deno:{env:{get:()=>''},serve:fn=>handler=fn},createClient:()=>db,Response,crypto,TextEncoder,Uint8Array,Date,atob,console});
+async function call(action,data={}){return handler(new Request('https://test',{method:'POST',headers:{authorization:'Bearer e30.eyJzZXNzaW9uX2lkIjoicyJ9.x'},body:JSON.stringify({action,...data})}))}
+rows=[{id:'a',user_id:'me',note:'mine',status:'Jobbar'},{id:'b',user_id:'other',note:'secret',status:'Sjuk'}];let r=await call('state');let state=await r.json();assert.equal(state.attendance[0].note,'mine');assert.equal(state.attendance[1].note,'');
+assert.equal((await call('chat',{body:'Hello'})).status,200);assert.equal(lastInsert.v.author,'me');assert.equal(lastInsert.table,'pvol_chat');
+assert.equal((await call('chat',{body:''})).status,400);
+assert.equal((await call('phone',{name:'Truck',category:'Truckar',phone:'+46 (31) 123-45',description:''})).status,200);
+assert.equal((await call('phone',{name:'Truck',category:'Truckar',phone:'javascript:123',description:''})).status,400);
+assert.equal((await call('deleteChat',{id:'other'})).status,403);
+assert.equal((await call('deletePhone',{id:'other'})).status,403);
+assert.equal((await call('instruction',{title:'Blocked'})).status,403);
+assert.equal((await call('attendance',{start:'2026-10-28',end:'2026-10-28',status:'Semester',note:''})).status,200);
+assert.equal((await call('attendance',{start:'2026-10-28',end:'2026-10-28',status:'Invalid',note:''})).status,400);
+active=false;assert.equal((await call('chat',{body:'Denied'})).status,403);
+console.log('PASS API status privacy, chat authorship, phone validation, deletion ownership, admin protection and inactive member access');

@@ -1,6 +1,6 @@
 # PVÖL Förråd
 
-Private Swedish mobile community app, built in the existing `pvol-app` repository. Inspired by the supplied Tisdagsklubben v14 source: private membership, server-side access checks, shared feed and protected photos. PVÖL retains its navy/yellow identity, department categories, recurring meetings and private attendance.
+Private Swedish mobile community app, built in the existing `pvol-app` repository. Inspired by the supplied Tisdagsklubben v14 source: private membership, server-side access checks, shared feed and protected photos. PVÖL retains its navy/yellow identity, department categories, recurring meetings and shared attendance statuses with private notes.
 
 ## Production
 
@@ -23,7 +23,7 @@ Existing Vercel project `pvol-forrad`; existing Supabase project `usximvurnararr
 
 ## Features
 
-Posts, category filters, private photos, comments, edit/delete permissions, activities and calendar export, alternating weekly meetings and admin overrides, private attendance, searchable instructions, invitation revocation, member roles and suspension, password changes and manual password recovery.
+Posts, category filters, private photos, comments, edit/delete permissions, activities and calendar export, alternating weekly meetings and admin overrides, shared attendance statuses with private notes, job pages with instructions and important information, shared question chat, a dialable telephone directory, searchable instructions, invitation revocation, member roles and suspension, password changes and manual password recovery.
 
 ## Deploy
 
@@ -38,3 +38,7 @@ Deploy root files and `api/index.mjs` to the existing Vercel project. SQL migrat
 No email ownership verification is claimed: the manually delivered invitation authorizes membership and the chosen address is a login identifier. Account recovery requires a new one-time link from the owner. Supabase's paid leaked-password screening is not required; this app enforces at least 12 characters with letters and numbers. Feed returns the latest 200 posts and 2,000 comments; activities are capped at 500 per fetch. These limits prevent unbounded responses. Existing Supabase data is retained.
 
 Security advisor references: [closed tables with RLS](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy) are intentional because this app uses a server-only data layer; [leaked password screening](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection) remains disabled on the existing plan.
+
+## Community features
+
+Every job button opens its own instructions and important information. Administrators create and edit instructions. All active members can chat and add or edit directory entries; authors and administrators can delete them. Directory numbers are validated and use `tel:` links. Attendance statuses are visible to active members; the API strips private notes belonging to others. Chat refreshes every 15 seconds while open, without interrupting a draft. The database extension is in `db/community.sql`.
