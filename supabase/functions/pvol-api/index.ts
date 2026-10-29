@@ -7,7 +7,7 @@ function fail(message:string,status=400):never{throw {message,status}}
 function str(x:unknown,max:number,min=0){if(typeof x!=='string'||x.trim().length<min||x.length>max)fail('Kontrollera text och obligatoriska fält.');return x.trim()}
 async function result(q:any){const {data,error}=await q;if(error)throw Error('Database operation failed');return data}
 function pwd(x:unknown,min=1){if(typeof x!=='string'||x.length<min||x.length>256)fail('Kontrollera lösenordets längd.');return x}
-const cats=['Övrigt','Förslagslåda','Förbättringsförslag','Mötesfrågor','Luckans loggbok','Luckans morgonbön','Facket informerar','Skyddsombudet informerar','Truckar','Plock','Inlägg','Moppe','Utkör','Avrop','Luckan','Brist','Däck'];
+const cats=['Övrigt','Förslagslåda','Förbättringsförslag','Mötesfrågor','Luckans loggbok','Luckans morgonbön','Facket informerar','Skyddsombudet informerar','Ledningen informerar','Truckar','Plock','Inlägg','Moppe','Utkör','Avrop','Luckan','Brist','Däck'];
 Deno.serve(async req=>{try{
  if(req.method!=='POST')return json({error:'Metoden stöds inte.'},405);
  if(Number(req.headers.get('content-length')||0)>7500000)fail('För stor förfrågan.',413);
@@ -39,7 +39,7 @@ Deno.serve(async req=>{try{
  const {data,error}=await db.auth.admin.createUser({email,password,email_confirm:true});if(error||!data.user)fail('Kontot kunde inte skapas. Adressen kan redan vara registrerad.');uid=data.user.id;
  try{await result(db.rpc('pvol_accept',{h,u:uid}));}catch{await db.auth.admin.deleteUser(uid);fail('Länken kunde inte användas. Den kan redan vara använd.',409)}
  }
- if(displayName)await result(db.from('pvol_members').update({display_name:displayName}).eq('user_id',uid));
+ if(displayName)await result(db.from('pvol_members').update({display_name:displayName,leadership_publisher:invite.leadership_publisher===true}).eq('user_id',uid));
  const {data,error}=await createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}}).auth.signInWithPassword({email,password});if(error||!data.session)fail('Lösenordet sparades. Logga in med din e-postadress och lösenord.',400);return json({session:data.session});
  }
  const jwt=req.headers.get('authorization')?.replace(/^Bearer /i,'')||'';
@@ -56,22 +56,23 @@ Deno.serve(async req=>{try{
  if(action==='logout'){await db.auth.admin.signOut(jwt,'local');return json({ok:true})}
  if(action==='state'){
  const [posts,comments,events,instructions,members,attendance,meetings,chat,phones,trucks,settings]=await Promise.all([
- result(db.from('pvol_posts').select('*').order('created_at',{ascending:false}).limit(200)),result(db.from('pvol_comments').select('*').order('created_at').limit(2000)),result(db.from('pvol_events').select('*').order('starts_at').limit(500)),result(db.from('pvol_instructions').select('*').order('title')),result(db.from('pvol_members').select('user_id,display_name,role,active,birthday_mmdd').order('display_name')),result(db.from('pvol_attendance').select('*').order('start_date',{ascending:false})),result(db.from('pvol_meeting_changes').select('*')),result(db.from('pvol_chat').select('*').order('created_at',{ascending:false}).limit(300)),result(db.from('pvol_phones').select('*').order('category').order('name')),result(db.from('pvol_trucks').select('*').order('truck_number')),result(db.from('pvol_settings').select('job_order').eq('id',true).maybeSingle())]);
+ result(db.from('pvol_posts').select('*').order('created_at',{ascending:false}).order('id',{ascending:false}).limit(200)),result(db.from('pvol_comments').select('*').order('created_at').limit(2000)),result(db.from('pvol_events').select('*').order('starts_at').limit(500)),result(db.from('pvol_instructions').select('*').order('title')),result(db.from('pvol_members').select('user_id,display_name,role,active,birthday_mmdd,leadership_publisher').order('display_name')),result(db.from('pvol_attendance').select('*').order('start_date',{ascending:false})),result(db.from('pvol_meeting_changes').select('*')),result(db.from('pvol_chat').select('*').order('created_at',{ascending:false}).limit(300)),result(db.from('pvol_phones').select('*').order('category').order('name')),result(db.from('pvol_trucks').select('*').order('truck_number')),result(db.from('pvol_settings').select('job_order').eq('id',true).maybeSingle())]);
  const invites=admin?await result(db.from('pvol_invites').select('id,display_name,expires_at,used_at,revoked_at,target_user').order('created_at',{ascending:false}).limit(100)):[];
  const signed=posts.filter((p:any)=>p.image).map((p:any)=>p.image);
  const images=signed.length?await db.storage.from('pvol-images').createSignedUrls(signed,300):{data:[]};
  return json({me:{...me,email:auth.user.email},posts:posts.map((p:any)=>({...p,imageURL:images.data?.find((i:any)=>i.path===p.image)?.signedUrl||null})),comments,events,instructions,members,attendance:attendance.map((a:any)=>({...a,note:a.user_id===uid?a.note:''})),meetings,invites,chat,phones,trucks,jobOrder:settings?.job_order||[]});
  }
+ if(action==='olderPosts'){const category=str(b.category,80,1),offset=b.offset;if(!cats.includes(category)||!Number.isInteger(offset)||offset<0)fail('Ogiltigt arkivval.');const posts=await result(db.from('pvol_posts').select('*').eq('category',category).order('created_at',{ascending:false}).order('id',{ascending:false}).range(offset,offset+49));const ids=posts.map((p:any)=>p.id),comments=ids.length?await result(db.from('pvol_comments').select('*').in('post_id',ids).order('created_at')):[];const paths=posts.filter((p:any)=>p.image).map((p:any)=>p.image);const images=paths.length?await db.storage.from('pvol-images').createSignedUrls(paths,300):{data:[]};return json({posts:posts.map((p:any)=>({...p,imageURL:images.data?.find((x:any)=>x.path===p.image)?.signedUrl||null})),comments,hasMore:posts.length===50})}
  if(action==='invite'){
- requireAdmin();const name=str(b.name,80,1);let target=null;
+ requireAdmin();const name=str(b.name,80,1);if(b.leadership_publisher)requireOwner();let target=null;
  if(b.target){requireOwner();const m=await result(db.from('pvol_members').select('*').eq('user_id',b.target).single());if(!m.active)fail('Aktivera kontot först.');target=m.user_id;}
  const token=Array.from(crypto.getRandomValues(new Uint8Array(32))).map(x=>x.toString(16).padStart(2,'0')).join('');
- await result(db.from('pvol_invites').insert({token_hash:await hash(token),display_name:name,created_by:uid,target_user:target}));return json({token});
+ await result(db.from('pvol_invites').insert({token_hash:await hash(token),display_name:name,created_by:uid,target_user:target,leadership_publisher:b.leadership_publisher===true}));return json({token});
  }
  if(action==='revokeInvite'){requireAdmin();await result(db.from('pvol_invites').update({revoked_at:new Date().toISOString()}).eq('id',b.id));return json({ok:true})}
  if(action==='member'){
  requireOwner();if(b.id===uid)fail('Huvudadmin kan inte ändra sitt eget medlemskap.');const target=await result(db.from('pvol_members').select('*').eq('user_id',b.id).single());if(target.role==='owner')fail('Huvudadmin är skyddad.');if(!['member','admin'].includes(b.role)||typeof b.active!=='boolean')fail('Ogiltig behörighet.');
- await result(db.from('pvol_members').update({role:b.role,active:b.active,display_name:str(b.name,80,1)}).eq('user_id',b.id));
+ await result(db.from('pvol_members').update({role:b.role,active:b.active,leadership_publisher:b.leadership_publisher===true,display_name:str(b.name,80,1)}).eq('user_id',b.id));
  if(!b.active){await db.rpc('pvol_revoke_sessions',{u:b.id});await db.from('pvol_invites').update({revoked_at:new Date().toISOString()}).eq('target_user',b.id).is('used_at',null)}return json({ok:true});
  }
  if(action==='password'){
@@ -80,7 +81,7 @@ Deno.serve(async req=>{try{
  }
  if(action==='post'){
  const body=str(b.body,5000,1),category=b.category==='AW'?'Övrigt':cats.includes(b.category)?b.category:'Inlägg';
- if(['Inlägg','Facket informerar','Skyddsombudet informerar'].includes(category))requireAdmin();
+ if(['Inlägg','Facket informerar','Skyddsombudet informerar','Ledningen informerar'].includes(category)&&!(category==='Ledningen informerar'&&me.leadership_publisher===true))requireAdmin();
  if(b.id){requireAdmin();const existing=await result(db.from('pvol_posts').select('category').eq('id',b.id).single());if(['Inlägg','Facket informerar','Skyddsombudet informerar'].includes(existing?.category))requireAdmin();let q=db.from('pvol_posts').update({body,category}).eq('id',b.id);if(!admin)q=q.eq('author',uid);const rows=await result(q.select('id'));if(!rows.length)fail('Inlägget saknas eller tillhör någon annan.',403);return json({ok:true})}
  let image=null;if(b.image){if(typeof b.image!=='string'||b.image.length>7000000)fail('Bilden är för stor.');const bytes=Uint8Array.from(atob(b.image),x=>x.charCodeAt(0));let ext='';if(bytes[0]===255&&bytes[1]===216&&bytes[2]===255)ext='jpg';if(bytes[0]===137&&bytes[1]===80&&bytes[2]===78&&bytes[3]===71)ext='png';if(String.fromCharCode(...bytes.slice(0,4))==='RIFF'&&String.fromCharCode(...bytes.slice(8,12))==='WEBP')ext='webp';if(!ext||bytes.length>5000000)fail('Välj JPG, PNG eller WebP under 5 MB.');image=uid+'/'+crypto.randomUUID()+'.'+ext;const upload=await db.storage.from('pvol-images').upload(image,bytes,{contentType:ext==='jpg'?'image/jpeg':'image/'+ext});if(upload.error)fail('Bilden kunde inte laddas upp.',500)}
  try{await result(db.from('pvol_posts').insert({author:uid,body,category,image}));}catch(e){if(image)await db.storage.from('pvol-images').remove([image]);throw e}return json({ok:true});
